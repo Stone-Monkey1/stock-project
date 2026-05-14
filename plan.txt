@@ -1,0 +1,2 @@
+pull most recent contracts
+find out what companies manufacture the components of what's required for the contracts
