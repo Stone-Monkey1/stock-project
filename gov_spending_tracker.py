@@ -1,6 +1,8 @@
+# HTTP library for python
 import requests
 import pandas as pd
 
+# This is an example of a dictionary, it has key : value pairs
 TICKER_MAP = {
     "LOCKHEED MARTIN CORPORATION": "LMT",
     "THE BOEING COMPANY": "BA",
@@ -10,10 +12,16 @@ TICKER_MAP = {
     "PFIZER INC.": "PFE",
     "MCKESSON CORPORATION": "MCK"
 }
-
+# how to define a function in python
+# uses snake_case
+# () holds potental arguments
+# Doesn't use {} like JS or C# to group function/method content, python uses indentations
 def fetch_and_map_contracts():
     print("Fetching recent data from USAspending.gov...")
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
+
+    # This is a dictionary like above
+    # However, this dictionary has arrays 
 
     payload = {
         "filters": {
@@ -25,12 +33,22 @@ def fetch_and_map_contracts():
         "sort": "Award Amount",
         "order": "desc"
     }
-    
+    # Another dictionary
     headers = {"Content-Type": "application/json"}
+    # does a post function on requests
     response = requests.post(url, json=payload, headers=headers)
-
+    # Checks to see if the message received back from the HTTP address is giving the all clear
+    # checking to see if connection is possible, it's acting basically like a boolean
+    # is connected? true = if && false = else
     if response.status_code == 200:
+        # response.json gets the raw text we get back from the website we posted to
+        # .get is a built-in method for dictionaries
+        # results and [] is what we're feeding to the get method
+        # 'results' is the key wer're using looks inside the API response dictionary and grabs the data sitting inside the 'results' key
+        # [] is the fallback value
         data = response.json().get('results', [])
+
+        
         df = pd.DataFrame(data)
         
         # Makes the recipient names match ticker map format
