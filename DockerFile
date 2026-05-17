@@ -1,0 +1,17 @@
+# 1. Start with a lightweight version of Python
+FROM python:3.11-slim
+
+# 2. Set the working directory inside the container
+WORKDIR /app
+
+# 3. Copy your requirements file into the container
+COPY requirements.txt .
+
+# 4. Install the required libraries
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 5. Copy your actual Python script into the container
+COPY gov_spending_tracker.py .
+
+# 6. Tell Docker what to do when the container starts
+CMD ["python", "gov_spending_tracker.py"]
