@@ -1,2 +1,13 @@
-pull most recent contracts
-find out what companies manufacture the components of what's required for the contracts
+Done
+Connect to Government Spending site, get a response about recent contracts
+Connect to SEC site to begin mapping contract recipients to ticker ID
+
+To-Do
+Correctly label prime contract and sub-contract recipients as public or private
+If the company is public I need to be ableto grab its ticker ID
+Find a way to track frequency of contracts received related to company's EV (Enterprise Value) the idea being that low EV + high contract size means higher increase to share prices
+Translate this information into stock actions
+Connect to a stock brokerage website
+Create a buy/sell alogorithm
+House everything on our server so it can run automatically
+Security?

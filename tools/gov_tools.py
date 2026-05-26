@@ -11,7 +11,7 @@ import time
 
 # import ticker map function from adjacent file
 
-from tools.sec_tools import get_dynamic_ticker_map
+from tools.sec_tools import get_dynamic_ticker_map, clean_company_name
 
 # This is an example of a dictionary, it has key : value pairs
 TICKER_MAP = get_dynamic_ticker_map()
@@ -56,7 +56,7 @@ def fetch_and_map_contracts():
             "Funding Agency",
             "Description",
         ],
-        "limit": 20,
+        "limit": 4,
         "sort": "Award Amount",
         "order": "desc",
     }
@@ -100,11 +100,15 @@ def fetch_and_map_contracts():
         # Heading already exists, so data is overwritten
         df["Recipient Name"] = df["Recipient Name"].str.upper()
 
+        # .apply works as an in-line for loop, so for every row in "Recipent Name" it runs clean_company_name function
+
+        df["Clean Name"] = df["Recipient Name"].apply(clean_company_name)
+
         # Creates a new column in the df spreadsheet
         # A new column is created because 'Ticker' isn't in the json data we got from the url
         # This is also from the API documentation. They don't care about stock tickers, so it isn't in the documention
         # Creates a new column in the df spreadsheet
-        df["Ticker"] = df["Recipient Name"].map(TICKER_MAP).fillna("PRIVATE / UNKNOWN")
+        df["Ticker"] = df["Clean Name"].map(TICKER_MAP).fillna("PRIVATE / UNKNOWN")
 
         # --- REMOVE OR COMMENT OUT THIS LINE ---
         # investable_df = df[df["Ticker"] != "Private/Unknown"].copy()
@@ -121,7 +125,7 @@ def fetch_and_map_contracts():
 
             df["Award Amount"] = df["Award Amount"].apply(lambda x: f"${x:,.2f}")
 
-            df["Description"] = df["Description"].fillna("No discription").astype(str)
+            df["Description"] = df["Description"].fillna("No description").astype(str)
 
             df["Description"] = df["Description"].apply(
                 lambda x: x[:45] + "..." if len(x) > 45 else x
@@ -204,17 +208,18 @@ def get_public_subcontractors(award_id, ticker_map):
         sub_amount = float(sub_amount)
 
         sub_name = str(sub_name).upper()
+        clean_sub_name = clean_company_name(sub_name)
 
         # Check if this subcontractor is in our SEC dictionary
-        ticker = ticker_map.get(sub_name)
+        ticker = ticker_map.get(clean_sub_name)
 
         if ticker:
             all_subs.append(
-                f"   ↳ 📈 PUBLIC ({ticker}): {sub_name} won a ${sub_amount:,.2f} subcontract"
+                f"   ↳ 📈 PUBLIC ({ticker}): {clean_sub_name} won a ${sub_amount:,.2f} subcontract"
             )
         else:
             all_subs.append(
-                f"   ↳ 🏢 PRIVATE: {sub_name} won a ${sub_amount:,.2f} subcontract"
+                f"   ↳ 🏢 PRIVATE: {clean_sub_name} won a ${sub_amount:,.2f} subcontract"
             )
 
     return all_subs
