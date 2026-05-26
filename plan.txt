@@ -1,8 +1,10 @@
 Done
 Connect to Government Spending site, get a response about recent contracts
 Connect to SEC site to begin mapping contract recipients to ticker ID
+Grab list of prime contracts between a certain date and time
 
 To-Do
+FIGURE OUT SUBCONTRACTS
 Correctly label prime contract and sub-contract recipients as public or private
 If the company is public I need to be ableto grab its ticker ID
 Find a way to track frequency of contracts received related to company's EV (Enterprise Value) the idea being that low EV + high contract size means higher increase to share prices

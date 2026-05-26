@@ -14,8 +14,6 @@ def clean_company_name(name):
 
   name = re.sub(suffixes, '', name)
 
-  print(name)
-
 # Cleans any remining whitespaces and returns the name
   return " ".join(name.split())
 

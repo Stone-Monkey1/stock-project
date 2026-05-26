@@ -55,8 +55,9 @@ def fetch_and_map_contracts():
             "Award Amount",
             "Funding Agency",
             "Description",
+            "generated_unique_award_id",
         ],
-        "limit": 4,
+        "limit": 15,
         "sort": "Award Amount",
         "order": "desc",
     }
@@ -110,9 +111,6 @@ def fetch_and_map_contracts():
         # Creates a new column in the df spreadsheet
         df["Ticker"] = df["Clean Name"].map(TICKER_MAP).fillna("PRIVATE / UNKNOWN")
 
-        # --- REMOVE OR COMMENT OUT THIS LINE ---
-        # investable_df = df[df["Ticker"] != "Private/Unknown"].copy()
-
         print("\n--- Top Government Contracts (Public & Private) ---")
 
         if df.empty:
@@ -143,7 +141,6 @@ def fetch_and_map_contracts():
                     ]
                 ].to_string(index=False)
             )
-            # ... (Your existing print statement for the dataframe is right above this) ...
 
             print("\n--- Digging into Private Contracts for Public Subcontractors ---")
 
@@ -152,26 +149,32 @@ def fetch_and_map_contracts():
 
             # Loop through the rows one by one
             for index, row in private_df.iterrows():
-                award_id = str(row["Award ID"])
+                short_award_id = str(row["Award ID"])
+                long_award_id = str(row["generated_unique_award_id"])
                 prime_name = row["Recipient Name"]
                 prime_amount = row["Award Amount"]
 
-                print(f"Scanning {prime_name} for subcontracts... (ID: {award_id})")
+                print(
+                    f"Scanning {prime_name} for subcontracts... (ID: {short_award_id})"
+                )
 
                 # Send the ID to our new scanner function
-                subs = get_public_subcontractors(award_id, TICKER_MAP)
+                subs = get_public_subcontractors(long_award_id, TICKER_MAP)
 
                 # If we found public subcontractors, print them out!
                 if subs:
                     print(f"\nPrime: {prime_name} ({prime_amount}) hired:")
                     for sub in subs:
                         print(sub)
+
+                else:
+                    print("0 subcontracts reported in the database")
                 time.sleep(1)
     else:
         print(f"Failed to connect. Error code: {response.status_code}")
 
 
-def get_public_subcontractors(award_id, ticker_map):
+def get_public_subcontractors(long_award_id, ticker_map):
     # This is a docstring which displays helpful hints
     """Hits the reliable POST API to find who the prime contractor hired."""
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
@@ -180,10 +183,17 @@ def get_public_subcontractors(award_id, ticker_map):
     payload = {
         "filters": {
             # Passes the award_id from feth_and_map_contracts
-            "keywords": [award_id]
+            "keywords": [long_award_id],
+            "time_period": [
+                {
+                    "start_date": "2010-01-01",
+                    "end_date": "2030-12-31",
+                    "date_type": "action_date",
+                }
+            ],
         },
         "subawards": True,
-        "limit": 20,
+        "limit": 100,
     }
 
     headers = {
