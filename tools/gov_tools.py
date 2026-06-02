@@ -57,7 +57,7 @@ def fetch_and_map_contracts():
             "Description",
             "generated_unique_award_id",
         ],
-        "limit": 15,
+        "limit": 4,
         "sort": "Award Amount",
         "order": "desc",
     }
@@ -151,6 +151,10 @@ def fetch_and_map_contracts():
             for index, row in private_df.iterrows():
                 short_award_id = str(row["Award ID"])
                 long_award_id = str(row["generated_unique_award_id"])
+                if not long_award_id:
+                    print(f"no long award id")
+                
+                print(long_award_id)
                 prime_name = row["Recipient Name"]
                 prime_amount = row["Award Amount"]
 
@@ -159,7 +163,7 @@ def fetch_and_map_contracts():
                 )
 
                 # Send the ID to our new scanner function
-                subs = get_public_subcontractors(long_award_id, TICKER_MAP)
+                subs = get_public_subcontractors(short_award_id, TICKER_MAP)
 
                 # If we found public subcontractors, print them out!
                 if subs:
