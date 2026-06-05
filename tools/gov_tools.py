@@ -55,7 +55,6 @@ def fetch_and_map_contracts():
             "Award Amount",
             "Funding Agency",
             "Description",
-            "generated_unique_award_id",
         ],
         "limit": 4,
         "sort": "Award Amount",
@@ -150,11 +149,6 @@ def fetch_and_map_contracts():
             # Loop through the rows one by one
             for index, row in private_df.iterrows():
                 short_award_id = str(row["Award ID"])
-                long_award_id = str(row["generated_unique_award_id"])
-                if not long_award_id:
-                    print(f"no long award id")
-                
-                print(long_award_id)
                 prime_name = row["Recipient Name"]
                 prime_amount = row["Award Amount"]
 
@@ -178,23 +172,17 @@ def fetch_and_map_contracts():
         print(f"Failed to connect. Error code: {response.status_code}")
 
 
-def get_public_subcontractors(long_award_id, ticker_map):
+def get_public_subcontractors( short_award_id, ticker_map):
     # This is a docstring which displays helpful hints
     """Hits the reliable POST API to find who the prime contractor hired."""
-    url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
+    url = "https://api.usaspending.gov/api/v2/subawards/"
 
     # We use the exact same reliable POST endpoint, but tell it we want subawards!
     payload = {
         "filters": {
             # Passes the award_id from feth_and_map_contracts
-            "keywords": [long_award_id],
-            "time_period": [
-                {
-                    "start_date": "2010-01-01",
-                    "end_date": "2030-12-31",
-                    "date_type": "action_date",
-                }
-            ],
+            "award_id": [ short_award_id],
+
         },
         "subawards": True,
         "limit": 100,
@@ -216,9 +204,9 @@ def get_public_subcontractors(long_award_id, ticker_map):
 
     for sub in sub_data:
         # APIs change keys frequently. We use fallbacks to guarantee we catch the data.
-        sub_name = sub.get("Sub-Awardee Name") or sub.get("Recipient Name") or ""
+        sub_name = sub.get("Sub-Awardee Name") or sub.get("recipient_name") or ""
 
-        sub_amount = sub.get("Sub-Award Amount") or sub.get("Award Amount") or 0
+        sub_amount = sub.get("Sub-Award Amount") or sub.get("amount") or 0
         sub_amount = float(sub_amount)
 
         sub_name = str(sub_name).upper()
