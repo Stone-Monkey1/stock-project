@@ -18,9 +18,7 @@ def calculate_urgency_score(company_ticker, df, market_cap):
 
     for index, row in company_contracts.iterrows():
         # Get the contract amount (ensure it's a float)
-        contract_value = float(
-            str(row["Award Amount"]).replace("$", "").replace(",", "")
-        )
+        contract_value = row["Amount"]
 
         # Calculate how many days ago this was awarded (simplified for example)
         # You would extract the real date from the API data here
