@@ -56,7 +56,7 @@ def fetch_and_map_contracts():
             "Funding Agency",
             "Description",
         ],
-        "limit": 4,
+        "limit": 10,
         "sort": "Award Amount",
         "order": "desc",
     }
@@ -146,33 +146,29 @@ def fetch_and_map_contracts():
             # Filter the spreadsheet down to just the private companies
             private_df = df[df["Ticker"] == "PRIVATE / UNKNOWN"]
 
+            master_subcontract_list = []
+
             # Loop through the rows one by one
-            for index, row in private_df.iterrows():
+            for index, row in df.iterrows():
                 short_award_id = str(row["Award ID"])
                 prime_name = row["Recipient Name"]
                 prime_amount = row["Award Amount"]
-
-                print(
-                    f"Scanning {prime_name} for subcontracts... (ID: {short_award_id})"
-                )
 
                 # Send the ID to our new scanner function
                 subs = get_public_subcontractors(short_award_id, TICKER_MAP)
 
                 # If we found public subcontractors, print them out!
                 if subs:
-                    print(f"\nPrime: {prime_name} ({prime_amount}) hired:")
-                    for sub in subs:
-                        print(sub)
-
-                else:
-                    print("0 subcontracts reported in the database")
+                    master_subcontract_list.extend(subs)
                 time.sleep(1)
+            sub_df = pd.DataFrame(master_subcontract_list)
+            return sub_df
     else:
         print(f"Failed to connect. Error code: {response.status_code}")
+        return pd.DataFrame()
 
 
-def get_public_subcontractors( short_award_id, ticker_map):
+def get_public_subcontractors(short_award_id, ticker_map):
     # This is a docstring which displays helpful hints
     """Hits the reliable POST API to find who the prime contractor hired."""
     url = "https://api.usaspending.gov/api/v2/subawards/"
@@ -181,8 +177,7 @@ def get_public_subcontractors( short_award_id, ticker_map):
     payload = {
         "filters": {
             # Passes the award_id from feth_and_map_contracts
-            "award_id": [ short_award_id],
-
+            "award_id": [short_award_id],
         },
         "subawards": True,
         "limit": 100,
@@ -217,11 +212,7 @@ def get_public_subcontractors( short_award_id, ticker_map):
 
         if ticker:
             all_subs.append(
-                f"   ↳ 📈 PUBLIC ({ticker}): {clean_sub_name} won a ${sub_amount:,.2f} subcontract"
-            )
-        else:
-            all_subs.append(
-                f"   ↳ 🏢 PRIVATE: {clean_sub_name} won a ${sub_amount:,.2f} subcontract"
+                {"Ticker": ticker, "Company Name": clean_sub_name, "Amount": sub_amount}
             )
 
     return all_subs
