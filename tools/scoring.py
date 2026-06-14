@@ -3,7 +3,6 @@ import math
 from datetime import datetime
 
 
-
 def calculate_urgency_score(company_ticker, df, market_cap):
     """
     Calculates an investment urgency score for a specific public company.
@@ -22,13 +21,24 @@ def calculate_urgency_score(company_ticker, df, market_cap):
 
         # Calculate how many days ago this was awarded (simplified for example)
         # You would extract the real date from the API data here
-        days_ago = 5
+        start_str = str(row["Start Date"])
+        end_str = str(row["End Date"])
 
-        # 3. Apply the time decay math
-        time_multiplier = math.exp(-decay_rate * days_ago)
+        if start_str == "None" or end_str == "None" or not start_str or not end_str:
+            continue
+
+        start_date = datetime.strptime(start_str, "%Y-%m-%d")
+        end_date = datetime.strptime(end_str, "%Y-%m-%d")
+
+        contract_duration_days = (end_date - start_date).days
+
+        duration_years = contract_duration_days / 365.25
+
+        duration_years = max(duration_years, 1.0)
 
         # 4. Calculate the relative impact (Value / Market Cap)
-        contract_score = (contract_value / market_cap) * time_multiplier
+        contract_score = (contract_value / duration_years) / market_cap
+        # print(contract_score)
 
         total_score += contract_score
 

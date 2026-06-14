@@ -33,7 +33,7 @@ def fetch_and_map_contracts():
     start_date_str = yesterday.strftime("%Y-%m-%d")
     end_date_str = today.strftime("%Y-%m-%d")
 
-    # This is a dictionary like above
+    # This is a dictionary
     # However, this dictionary has arrays and even dictionaries within dictionaries
     # At this point we would need to look through the documention of the url to make sure the API can handle the payload we're sending.
     # The payload has specific values that correspond to the json dictionary that the url sends back
@@ -54,8 +54,10 @@ def fetch_and_map_contracts():
             "Award Amount",
             "Funding Agency",
             "Description",
+            "Start Date",
+            "End Date"
         ],
-        "limit": 10,
+        "limit": 100,
         "sort": "Award Amount",
         "order": "desc",
     }
@@ -132,11 +134,13 @@ def fetch_and_map_contracts():
             print(
                 df[
                     [
-                        "Ticker",
-                        "Recipient Name",
-                        "Award Amount",
-                        "Description",
-                        "Funding Agency",
+                        # "Ticker",
+                        # "Recipient Name",
+                        # "Award Amount",
+                        # "Description",
+                        # "Funding Agency",
+                        # "Start Date",
+                        # "End Date"
                     ]
                 ].to_string(index=False)
             )
@@ -156,15 +160,19 @@ def fetch_and_map_contracts():
                         "Company Name": row["Clean Name"],
                         "Amount": row["Raw Amount"], 
                         "Type": "Prime Contract",
+                        "Start Date" : row["Start Date"],
+                        "End Date" : row["End Date"],
                     }
                 )
 
             # 2. Now loop through ALL contracts to find the Subcontracts
             for index, row in df.iterrows():
                 short_award_id = str(row["Award ID"])
+                prime_start = row["Start Date"]
+                prime_end = row["End Date"]
 
                 # Send the ID to our scanner function
-                subs = get_public_subcontractors(short_award_id, TICKER_MAP)
+                subs = get_public_subcontractors(short_award_id, TICKER_MAP, prime_start, prime_end)
 
                 # If we found public subcontractors, add them to our master list!
                 if subs:
@@ -179,7 +187,7 @@ def fetch_and_map_contracts():
         return pd.DataFrame()
 
 
-def get_public_subcontractors(short_award_id, ticker_map):
+def get_public_subcontractors(short_award_id, ticker_map, prime_start, prime_end):
     # This is a docstring which displays helpful hints
     """Hits the reliable POST API to find who the prime contractor hired."""
 
@@ -230,7 +238,9 @@ def get_public_subcontractors(short_award_id, ticker_map):
                     "Ticker": ticker,
                     "Company Name": clean_sub_name,
                     "Amount": sub_amount,
-                    "Type": "Subcontract",  # Added the type tag so you know what it is!
+                    "Type": "Subcontract",
+                    "Start Date" : prime_start,
+                    "End Date" : prime_end
                 }
             )
 
