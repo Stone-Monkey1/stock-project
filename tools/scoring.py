@@ -1,49 +1,43 @@
-import pandas as pd
-import math
-from datetime import datetime
-
-
-def calculate_urgency_score(company_ticker, df, market_cap):
+def calculate_daily_score(company_new_contracts, market_cap):
     """
-    Calculates an investment urgency score for a specific public company.
+    Calculates the base urgency score for a single day's worth of contracts.
+    Formula: (Sum of Today's Contracts) / Market Cap
     """
-    company_contracts = df[df["Ticker"] == company_ticker]
-
-    if company_contracts.empty:
+    if market_cap == 0.0 or company_new_contracts.empty:
         return 0.0
 
-    total_score = 0.0
-    decay_rate = 0.05  # Adjust this to make old contracts lose value faster or slower
+    # Sum up all the contract amounts won today
+    daily_revenue_sum = company_new_contracts["Amount"].sum()
 
-    for index, row in company_contracts.iterrows():
-        # Get the contract amount (ensure it's a float)
-        contract_value = row["Amount"]
+    # Divide by market cap
+    score = (daily_revenue_sum / market_cap) * 100
+    return score
 
-        # Calculate how many days ago this was awarded (simplified for example)
-        # You would extract the real date from the API data here
-        start_str = str(row["Start Date"])
-        end_str = str(row["End Date"])
 
-        if start_str == "None" or end_str == "None" or not start_str or not end_str:
-            continue
+def update_scoreboard(todays_scores_dict, historical_scores_dict):
+    """
+    Applies new scores to the scoreboard, applies a 5% decay to companies
+    that didn't win anything, and sorts the final list in descending order.
+    """
+    updated_scores = {}
 
-        start_date = datetime.strptime(start_str, "%Y-%m-%d")
-        end_date = datetime.strptime(end_str, "%Y-%m-%d")
+    # 1. Update existing companies and apply the 5% decay to the losers
+    for ticker, old_score in historical_scores_dict.items():
+        if ticker in todays_scores_dict:
+            # They won a contract today! Add it to their historical momentum.
+            updated_scores[ticker] = old_score + todays_scores_dict[ticker]
+        else:
+            # They didn't win anything today. Decay their old score by 5%.
+            updated_scores[ticker] = old_score * 0.985
 
-        contract_duration_days = (end_date - start_date).days
+    # 2. Add brand new companies that just won their very first contract
+    for ticker, new_score in todays_scores_dict.items():
+        if ticker not in historical_scores_dict:
+            updated_scores[ticker] = new_score
 
-        duration_years = contract_duration_days / 365.25
+    # 3. Sort the dictionary from Highest Score to Lowest Score
+    sorted_scores = dict(
+        sorted(updated_scores.items(), key=lambda item: item[1], reverse=True)
+    )
 
-        duration_years = max(duration_years, 1.0)
-
-        # 4. Calculate the relative impact (Value / Market Cap)
-        contract_score = (contract_value / duration_years) / market_cap
-        # print(contract_score)
-
-        total_score += contract_score
-
-    # Factor in frequency (e.g., multiply by the number of contracts won)
-    frequency_multiplier = len(company_contracts)
-    final_score = total_score * frequency_multiplier
-
-    return final_score
+    return sorted_scores

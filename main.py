@@ -1,47 +1,61 @@
 from tools.gov_tools import fetch_and_map_contracts
-from tools.scoring import calculate_urgency_score
 from tools.market_tools import get_market_cap
-import time  # Needed to pause between Yahoo Finance requests
+from tools.history_tools import load_scores, save_scores
+from tools.scoring import calculate_daily_score, update_scoreboard
+import time
 
 
 def run_program():
     print("Starting Quantitative Contract Tracker...")
 
-    # 1. Go get the data (this runs your API calls and returns the DataFrame)
+    # 1. Load the historical contract lists from JSON
+    # It will look like {"LMT": [...], "BA": [...]}
+    historical_data = load_scores()
+
+    # 2. Fetch today's new data
     contract_df = fetch_and_map_contracts()
 
     if contract_df is None or contract_df.empty:
-        print("No data to process.")
+        print("No new data to process today.")
+        todays_scores = {}
         return
 
-    # 2. Get all unique tickers from the DataFrame
-    unique_tickers = contract_df["Ticker"].unique()
+    else:
 
-    # Filter out the "PRIVATE / UNKNOWN" entries so we only score real stocks
-    public_tickers = [
-        ticker for ticker in unique_tickers if "PRIVATE" not in str(ticker)
-    ]
+        unique_tickers = contract_df["Ticker"].unique()
+        public_tickers = [
+            ticker for ticker in unique_tickers if "PRIVATE" not in str(ticker)
+        ]
 
-    print(f"\n📊 Found {len(public_tickers)} public companies to score!")
+        # Dictionary to hold the final scores for printing
+        todays_scores = {}
 
-    # 3. Loop through EACH public ticker one by one
-    for ticker in public_tickers:
+        print(f"\n📊 Processing {len(public_tickers)} public companies...")
 
-        # Get the market cap for this specific company
-        market_cap = get_market_cap(ticker)
+        # 3. Loop through companies and update their rolling windows
+        for ticker in public_tickers:
+            market_cap = get_market_cap(ticker)
 
-        # Safety net: Skip scoring if Yahoo Finance couldn't find the market cap
-        if market_cap == 0.0:
-            print(f"⚠️ Skipping {ticker} - Could not retrieve Market Cap.")
-            continue
+            # Isolate just the new contracts for this specific company
+            company_new_contracts = contract_df[contract_df["Ticker"] == ticker]
 
-        # Feed the SINGLE ticker, data, and market cap into your algorithm
-        score = calculate_urgency_score(ticker, contract_df, market_cap)
+            # Get their existing history from the JSON (or an empty list if they are new)
+            daily_score = calculate_daily_score(company_new_contracts, market_cap)
 
-        print(f"📈 Urgency Score for {ticker}: {score:.8f}")
+            if daily_score > 0.0:
+                todays_scores[ticker] = daily_score
 
-        # Be polite to Yahoo Finance servers by pausing for 1 second between requests
-        time.sleep(1)
+            time.sleep(1)
+    # 👉 Pass today's scores and the JSON history into the momentum mixer
+    final_scoreboard = update_scoreboard(todays_scores, historical_data)
+
+    # 4. Save the pruned historical data back to the hard drive
+    save_scores(final_scoreboard)
+
+    # 5. Print the Top 5
+    print("\n🏆 --- TOP 5 TTM URGENCY SCORES --- 🏆")
+    for i, (ticker, score) in enumerate(list(final_scoreboard.items())[:5]):
+        print(f"{i+1}. {ticker}: {score:.6f}")
 
 
 if __name__ == "__main__":
