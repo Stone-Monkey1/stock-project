@@ -25,8 +25,8 @@ def fetch_and_map_contracts():
 
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
 
-    # 1. Switch back to the 3-day daily sweep!
-    start_date = datetime.now() - timedelta(days=2)
+    # 1. Switch back to the 1-day daily sweep!
+    start_date = datetime.now() - timedelta(days=1)
     end_date = datetime.now()
 
     start_date_str = start_date.strftime("%Y-%m-%d")
