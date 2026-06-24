@@ -1,7 +1,7 @@
-from tools.gov_tools import fetch_and_map_contracts
-from tools.market_tools import get_market_cap
-from tools.history_tools import load_scores, save_scores
-from tools.scoring import calculate_daily_score, update_scoreboard
+from scoring_toolbox.gov_tools import fetch_and_map_contracts
+from scoring_toolbox.market_tools import get_market_cap
+from scoring_toolbox.history_tools import load_scores, save_scores
+from scoring_toolbox.scoring import calculate_daily_score, update_scoreboard
 import time
 
 

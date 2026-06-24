@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import time
 
 # import ticker map function from adjacent file
-from tools.sec_tools import get_dynamic_ticker_map, clean_company_name
+from scoring_toolbox.sec_tools import get_dynamic_ticker_map, clean_company_name
 
 # This is an example of a dictionary, it has key : value pairs
 TICKER_MAP = get_dynamic_ticker_map()
