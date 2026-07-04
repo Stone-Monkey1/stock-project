@@ -2,6 +2,7 @@ from scoring_toolbox.gov_tools import fetch_and_map_contracts
 from scoring_toolbox.market_tools import get_market_cap
 from scoring_toolbox.history_tools import load_scores, save_scores
 from scoring_toolbox.scoring import calculate_daily_score, update_scoreboard
+from scoring_toolbox.new_contract_bouncer import ensure_new_contract
 import time
 
 
@@ -15,14 +16,17 @@ def run_program():
     # 2. Fetch today's new data
     contract_df = fetch_and_map_contracts()
 
-    if contract_df is None or contract_df.empty:
+    new_contracts = ensure_new_contract(contract_df)
+
+
+    if new_contracts is None or new_contracts.empty:
         print("No new data to process today.")
         todays_scores = {}
         return
 
     else:
 
-        unique_tickers = contract_df["Ticker"].unique()
+        unique_tickers = new_contracts["Ticker"].unique()
         public_tickers = [
             ticker for ticker in unique_tickers if "PRIVATE" not in str(ticker)
         ]
@@ -37,7 +41,7 @@ def run_program():
             market_cap = get_market_cap(ticker)
 
             # Isolate just the new contracts for this specific company
-            company_new_contracts = contract_df[contract_df["Ticker"] == ticker]
+            company_new_contracts = new_contracts[new_contracts["Ticker"] == ticker]
 
             # Get their existing history from the JSON (or an empty list if they are new)
             daily_score = calculate_daily_score(company_new_contracts, market_cap)

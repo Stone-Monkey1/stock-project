@@ -6,7 +6,6 @@ import pandas as pd
 
 # Allows reference to current date and time
 from datetime import datetime, timedelta
-
 import time
 
 # import ticker map function from adjacent file
@@ -16,17 +15,15 @@ from scoring_toolbox.sec_tools import get_dynamic_ticker_map, clean_company_name
 TICKER_MAP = get_dynamic_ticker_map()
 
 
-# how to define a function in python
-# uses snake_case
-# () holds potental arguments
-# Doesn't use {} like JS or C# to group function/method content, python uses indentations
 def fetch_and_map_contracts():
     print("Fetching recent data from USAspending.gov...")
 
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
 
     # 1. Switch back to the 1-day daily sweep!
-    start_date = datetime.now() - timedelta(days=1)
+    days_to_sweep = 5
+
+    start_date = datetime.now() - timedelta(days=days_to_sweep)
     end_date = datetime.now()
 
     start_date_str = start_date.strftime("%Y-%m-%d")
@@ -40,7 +37,7 @@ def fetch_and_map_contracts():
 
     # 3. Keep looping until the API says there are no more pages
     while has_next_page:
-        print(f"Fetching Page {page_num} of the 3-Day Sweep...")
+        print(f"Fetching Page {page_num} of the {days_to_sweep}-Day Sweep...")
 
         payload = {
             "filters": {
@@ -73,30 +70,46 @@ def fetch_and_map_contracts():
             "User-Agent": "AlecPowell (alecpow@gmail.com)",
         }
 
-        response = requests.post(url, json=payload, headers=headers)
+        # --- NEW RETRY SHIELD FOR PRIMES ---
+        max_retries = 3
+        success = False
 
-        if response.status_code == 200:
-            data_dict = response.json()
+        for attempt in range(max_retries):
+            response = requests.post(url, json=payload, headers=headers)
 
-            # Extract the contracts
-            page_data = data_dict.get("results", [])
-            all_raw_data.extend(page_data)
+            if response.status_code == 200:
+                success = True
+                break  # We got the data! Break out of the retry loop.
+            else:
+                print(
+                    f"⚠️ API hiccup on Page {page_num} (Error {response.status_code}). Retrying in 5 seconds... (Attempt {attempt + 1}/{max_retries})"
+                )
+                time.sleep(15)  # Wait 5 seconds to let their server recover
 
-            # Check the API's metadata to see if we need to turn the page again!
-            page_metadata = data_dict.get("page_metadata", {})
-            has_next_page = page_metadata.get("hasNext", False)
-
-            page_num += 1
-
-            # CRITICAL: Pause for 1 second so the government doesn't ban your IP!
-            time.sleep(1)
-        else:
+        # If we failed all 3 attempts, break the main pagination loop
+        if not success:
             print(
-                f"Failed to connect on Page {page_num}. Error code: {response.status_code}"
+                f"🚨 Failed to connect on Page {page_num} after {max_retries} attempts. Stopping pagination."
             )
             break
+        # -----------------------------------
 
-    # Once all 5 pages are collected, turn the massive list into our Pandas Spreadsheet!
+        data_dict = response.json()
+
+        # Extract the contracts
+        page_data = data_dict.get("results", [])
+        all_raw_data.extend(page_data)
+
+        # Check the API's metadata to see if we need to turn the page again!
+        page_metadata = data_dict.get("page_metadata", {})
+        has_next_page = page_metadata.get("hasNext", False)
+
+        page_num += 1
+
+        # CRITICAL: Pause for 1 second so the government doesn't ban your IP!
+        time.sleep(1)
+
+    # Once all pages are collected, turn the massive list into our Pandas Spreadsheet!
     if not all_raw_data:
         print("No contracts were found in the selected date range.")
         return pd.DataFrame()
@@ -151,8 +164,8 @@ def fetch_and_map_contracts():
             }
         )
 
-        # FUNNEL 2: Grab ALL large prime contracts to scan for subawards
-        # This protects your API from scanning thousands of tiny, irrelevant contracts
+    # FUNNEL 2: Grab ALL large prime contracts to scan for subawards
+    # This protects your API from scanning thousands of tiny, irrelevant contracts
     big_prime_contracts = df[df["Raw Amount"] >= 500000]
 
     total_to_scan = len(big_prime_contracts)
@@ -182,16 +195,12 @@ def fetch_and_map_contracts():
 
 
 def get_public_subcontractors(short_award_id, ticker_map, prime_start, prime_end):
-    # This is a docstring which displays helpful hints
     """Hits the reliable POST API to find who the prime contractor hired."""
 
-    # EXACT URL that matches the payload!
     url = "https://api.usaspending.gov/api/v2/subawards/"
 
-    # We use the exact same reliable POST endpoint, but tell it we want subawards!
     payload = {
         "filters": {
-            # Locked in your tested filters
             "award_id": [short_award_id],
         },
         "subawards": True,
@@ -202,10 +211,25 @@ def get_public_subcontractors(short_award_id, ticker_map, prime_start, prime_end
         "Content-Type": "application/json",
         "User-Agent": "AlecPowell (alecpow@gmail.com)",
     }
-    response = requests.post(url, json=payload, headers=headers)
 
-    if response.status_code != 200:
+    # --- NEW RETRY SHIELD FOR SUBCONTRACTS ---
+    max_retries = 3
+    success = False
+
+    for attempt in range(max_retries):
+        response = requests.post(url, json=payload, headers=headers)
+
+        if response.status_code == 200:
+            success = True
+            break
+        else:
+            # We don't want to print every failure here since it runs hundreds of times,
+            # but we will wait 5 seconds before trying again
+            time.sleep(15)
+
+    if not success:
         return []
+    # -----------------------------------------
 
     sub_data = response.json().get("results", [])
     all_subs = []
@@ -214,7 +238,6 @@ def get_public_subcontractors(short_award_id, ticker_map, prime_start, prime_end
         return []
 
     for sub in sub_data:
-        # APIs change keys frequently. We use fallbacks to guarantee we catch the data.
         sub_name = sub.get("Sub-Awardee Name") or sub.get("recipient_name") or ""
         sub_id = str(sub.get("subaward_number"))
 
@@ -224,7 +247,6 @@ def get_public_subcontractors(short_award_id, ticker_map, prime_start, prime_end
         sub_name = str(sub_name).upper()
         clean_sub_name = clean_company_name(sub_name)
 
-        # Check if this subcontractor is in our SEC dictionary
         ticker = ticker_map.get(clean_sub_name)
 
         if ticker:
