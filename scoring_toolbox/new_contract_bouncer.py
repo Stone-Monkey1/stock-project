@@ -18,7 +18,7 @@ def ensure_new_contract(contract_df):
 
     if os.path.exists(LEDGER_FILE):
         with open(LEDGER_FILE, "r") as file:
-            seen_ledger = json.load
+            seen_ledger = json.load(file)
     else:
         seen_ledger = {}
 
