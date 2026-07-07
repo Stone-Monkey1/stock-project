@@ -3,7 +3,10 @@ import time
 import os
 import certifi
 
-os.environ["CURL_CA_BUNDLE"] = certifi.where()
+certs = certifi.where()
+os.environ["CURL_CA_BUNDLE"] = certs
+os.environ["REQUESTS_CA_BUNDLE"] = certs
+os.environ["SSL_CERT_FILE"] = certs
 
 
 def get_market_cap(ticker):
