@@ -1,12 +1,9 @@
 import yfinance as yf
-import time
-import os
-import certifi
+import requests
+import urllib3
 
-certs = certifi.where()
-os.environ["CURL_CA_BUNDLE"] = certs
-os.environ["REQUESTS_CA_BUNDLE"] = certs
-os.environ["SSL_CERT_FILE"] = certs
+# Mute the warnings that Python throws when you intentionally bypass SSL
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def get_market_cap(ticker):
@@ -17,11 +14,14 @@ def get_market_cap(ticker):
         return 0.0
 
     try:
-        # Create a Ticker object
-        stock = yf.Ticker(ticker)
+        # Create a custom web session that explicitly ignores SSL ID checks
+        session = requests.Session()
+        session.verify = False
+
+        # Pass our custom "ignore security" session into Yahoo Finance
+        stock = yf.Ticker(ticker, session=session)
 
         # .info is a massive dictionary containing all of Yahoo Finance's data
-        # We use .get() so it safely returns 0 if the data is missing
         mcap = stock.info.get("marketCap", 0.0)
 
         return float(mcap)
