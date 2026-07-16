@@ -8,6 +8,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 import time
 
+import os
+import json
+
 # import ticker map function from adjacent file
 from scoring_toolbox.sec_tools import get_dynamic_ticker_map, clean_company_name
 
@@ -146,10 +149,25 @@ def fetch_and_map_contracts():
 
     print("\n--- Compiling Public Primes and Subcontracts for Scoring ---")
 
+    # --- THE FRONT-DOOR BOUNCER ---
+
+    seen_ids = set()
+    if os.path.exists("seen_award_ids.json"):
+        try:
+            with open("seen_award_ids.json", "r") as f:
+                ledger = json.load(f)
+                seen_ids = set(ledger.keys())
+        except Exception as e:
+            print(f"⚠️ Could not load Bouncer ledger: {e}")
+    # ------------------------------
+
     master_contract_list = []
 
-    # FUNNEL 1: Grab ALL public prime contracts (No minimum amount! We want every penny)
+    # FUNNEL 1: Grab ALL public prime contracts (No minimum amount!)
     public_primes = df[df["Ticker"] != "PRIVATE / UNKNOWN"]
+
+    # BOUNCER CHECK 1: Drop public primes we already scored yesterday
+    public_primes = public_primes[~public_primes["Award ID"].astype(str).isin(seen_ids)]
 
     for index, row in public_primes.iterrows():
         master_contract_list.append(
@@ -165,11 +183,20 @@ def fetch_and_map_contracts():
         )
 
     # FUNNEL 2: Grab ALL large prime contracts to scan for subawards
-    # This protects your API from scanning thousands of tiny, irrelevant contracts
     big_prime_contracts = df[df["Raw Amount"] >= 500000]
+    original_count = len(big_prime_contracts)
+
+    # BOUNCER CHECK 2: Drop large primes we already scanned yesterday!
+    big_prime_contracts = big_prime_contracts[
+        ~big_prime_contracts["Award ID"].astype(str).isin(seen_ids)
+    ]
 
     total_to_scan = len(big_prime_contracts)
-    print(f"🔍 Scanning {total_to_scan} large prime contracts for sub-awards...")
+
+    print(
+        f"🛡️ Bouncer successfully dropped {original_count - total_to_scan} old contracts at the front door."
+    )
+    print(f"🔍 Scanning {total_to_scan} NEW large prime contracts for sub-awards...")
 
     for count, (index, row) in enumerate(big_prime_contracts.iterrows(), 1):
         short_award_id = str(row["Award ID"])
@@ -187,6 +214,7 @@ def fetch_and_map_contracts():
         # If we found public subcontractors, add them to our master list!
         if subs:
             master_contract_list.extend(subs)
+
         time.sleep(1)
 
     # Convert the final list into a DataFrame and return it to main.py
@@ -212,23 +240,24 @@ def get_public_subcontractors(short_award_id, ticker_map, prime_start, prime_end
         "User-Agent": "AlecPowell (alecpow@gmail.com)",
     }
 
-    # --- NEW RETRY SHIELD FOR SUBCONTRACTS ---
+    # Attempt to call the API up to 3 times
     max_retries = 3
-    success = False
-
     for attempt in range(max_retries):
-        response = requests.post(url, json=payload, headers=headers)
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=20)
+            break  # If successful, break out of the retry loop
+        except requests.exceptions.ConnectionError:
+            if attempt < max_retries - 1:
+                print(
+                    f" API connection reset by server. Retrying in 5 seconds... (Attempt {attempt+1}/{max_retries})"
+                )
+                time.sleep(5)
+            else:
+                print(" Failed to connect after 3 attempts. Skipping this contract.")
+                return (
+                    pd.DataFrame()
+                )  # Return empty dataframe so the script doesn't crash
 
-        if response.status_code == 200:
-            success = True
-            break
-        else:
-            # We don't want to print every failure here since it runs hundreds of times,
-            # but we will wait 5 seconds before trying again
-            time.sleep(15)
-
-    if not success:
-        return []
     # -----------------------------------------
 
     sub_data = response.json().get("results", [])
