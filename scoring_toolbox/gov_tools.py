@@ -246,18 +246,15 @@ def get_public_subcontractors(short_award_id, ticker_map, prime_start, prime_end
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=20)
             break  # If successful, break out of the retry loop
-        except requests.exceptions.ConnectionError:
+        except (requests.exceptions.ConnectionError, requests.exceptions.TimeoutError) as e:
             if attempt < max_retries - 1:
                 print(
-                    f" API connection reset by server. Retrying in 5 seconds... (Attempt {attempt+1}/{max_retries})"
+                    f" API hiccup ({e.__class__.__name__}). Retrying in 5 seconds... (Attempt {attempt+1}/{max_retries})"
                 )
                 time.sleep(5)
             else:
                 print(" Failed to connect after 3 attempts. Skipping this contract.")
-                return (
-                    pd.DataFrame()
-                )  # Return empty dataframe so the script doesn't crash
-
+                return []
     # -----------------------------------------
 
     sub_data = response.json().get("results", [])
