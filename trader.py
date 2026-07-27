@@ -43,7 +43,7 @@ def get_3_day_ago_price(ticker):
 
 def run_trader():
     # --- Strategy Rules Configuration ---
-    BUY_SCORE_THRESHOLD = 40.0
+    BUY_SCORE_THRESHOLD = 25.0
     STOP_LOSS_PCT = 0.08  # Rule 3: 8% Max Loss
     THREE_DAY_DROP_PCT = 0.10  # Rule 4: 10% drop over 3 days
     ALLOCATION_PER_TRADE = 1000  # Put $1000 into each stock we buy
