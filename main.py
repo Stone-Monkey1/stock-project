@@ -18,7 +18,6 @@ def run_program():
 
     new_contracts = ensure_new_contract(contract_df)
 
-
     if new_contracts is None or new_contracts.empty:
         print("No new data to process today.")
         todays_scores = {}
@@ -56,10 +55,32 @@ def run_program():
     # 4. Save the pruned historical data back to the hard drive
     save_scores(final_scoreboard)
 
-    # 5. Print the Top 5
-    print("\n🏆 --- TOP 5 TTM URGENCY SCORES --- 🏆")
-    for i, (ticker, score) in enumerate(list(final_scoreboard.items())[:5]):
-        print(f"{i+1}. {ticker}: {score:.6f}")
+    # 5. Print the Top 5 Categories
+    print("\n🏆 --- TOP 5 DECAY SCORES --- 🏆")
+    # This is already sorted by scoring.py, but we explicitly sort here just in case!
+    top_decay = sorted(
+        final_scoreboard.items(), key=lambda x: x[1]["decay_score"], reverse=True
+    )[:5]
+    for i, (ticker, data) in enumerate(top_decay):
+        print(f"{i+1}. {ticker}: {data['decay_score']:.6f}")
+
+    print("\n🚀 --- TOP 5 DELTA (DAILY JUMP) --- 🚀")
+    # Re-sort the dictionary looking only at the "delta" key
+    top_delta = sorted(
+        final_scoreboard.items(), key=lambda x: x[1]["delta"], reverse=True
+    )[:5]
+    for i, (ticker, data) in enumerate(top_delta):
+        # Notice the '+' in the formatting! It forces Python to show a + or - sign for momentum
+        print(f"{i+1}. {ticker}: {data['delta']:+.6f}")
+
+    print("\n📅 --- TOP 5 YTD SCORES --- 📅")
+    # Re-sort the dictionary looking only at the "ytd_score" key
+    top_ytd = sorted(
+        final_scoreboard.items(), key=lambda x: x[1]["ytd_score"], reverse=True
+    )[:5]
+    for i, (ticker, data) in enumerate(top_ytd):
+        # Added a comma format so large YTD numbers are easier to read (e.g., 1,500.23)
+        print(f"{i+1}. {ticker}: {data['ytd_score']:,.6f}")
 
 
 if __name__ == "__main__":

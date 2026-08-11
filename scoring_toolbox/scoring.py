@@ -23,21 +23,44 @@ def update_scoreboard(todays_scores_dict, historical_scores_dict):
 
     # 1. Update existing companies and apply the 5% decay to the losers
     for ticker, old_score in historical_scores_dict.items():
+        old_decay = old_score["decay_score"]
+        old_ytd = old_score["ytd_score"]
         if ticker in todays_scores_dict:
+
+            new_decay = (old_decay * 0.985) + todays_scores_dict[ticker]
+            # Then, use new_decay and old_decay to calculate your delta!
             # They won a contract today! Add it to their historical momentum.
-            updated_scores[ticker] = old_score + todays_scores_dict[ticker]
+            updated_scores[ticker] = {
+                "decay_score": new_decay,
+                "ytd_score": old_ytd + todays_scores_dict[ticker],
+                "delta": new_decay - old_decay,
+            }
+
         else:
             # They didn't win anything today. Decay their old score by 5%.
-            updated_scores[ticker] = old_score * 0.985
+            new_decay = old_decay * 0.985
+            updated_scores[ticker] = {
+                "decay_score": old_decay * 0.985,
+                "ytd_score": old_ytd,
+                "delta": new_decay - old_decay,
+            }
 
     # 2. Add brand new companies that just won their very first contract
     for ticker, new_score in todays_scores_dict.items():
         if ticker not in historical_scores_dict:
-            updated_scores[ticker] = new_score
+            updated_scores[ticker] = {
+                "decay_score": new_score,
+                "ytd_score": new_score,
+                "delta": new_score,
+            }
 
     # 3. Sort the dictionary from Highest Score to Lowest Score
     sorted_scores = dict(
-        sorted(updated_scores.items(), key=lambda item: item[1], reverse=True)
+        sorted(
+            updated_scores.items(),
+            key=lambda item: item[1]["decay_score"],
+            reverse=True,
+        )
     )
 
     return sorted_scores
