@@ -44,6 +44,7 @@ def get_3_day_ago_price(ticker):
 def run_trader():
     # --- Strategy Rules Configuration ---
     BUY_SCORE_THRESHOLD = 25.0
+    DELTA_SCORE_THRESHOLD = 15.0
     STOP_LOSS_PCT = 0.08  # Rule 3: 8% Max Loss
     THREE_DAY_DROP_PCT = 0.10  # Rule 4: 10% drop over 3 days
     ALLOCATION_PER_TRADE = 1000  # Put $1000 into each stock we buy
@@ -62,6 +63,14 @@ def run_trader():
     except FileNotFoundError:
         print("Error: historical_scores.json not found. Run main.py first.")
         return
+    try:
+        with open("blacklist.json", "r") as file:
+            # We convert the JSON list into a Python 'set' because checking
+            # 'if ticker in set' is mathematically much faster than checking a list!
+            blacklist = set(json.load(file))
+    except FileNotFoundError:
+        print("⚠️ No blacklist.json found. Running without restrictions.")
+        blacklist = set()
 
     print(
         f"🤖 Starting Trade Execution Engine... (Available Cash: ${available_cash:,.2f})"
@@ -99,33 +108,43 @@ def run_trader():
     # ==========================================
     # PHASE 2: EVALUATE NEW SIGNALS (BUY LOGIC)
     # ==========================================
-    for ticker, score in scores.items():
+    for ticker, metrics in scores.items():
+        if ticker in blacklist:
+            continue
         # Scale the decimal score by 1000 to match your "40" threshold target
-        
+        current_decay = metrics["decay_score"]
+        current_delta = metrics["delta"]
 
-        # Rule 1 Check: Score is high enough AND we don't already own it
-        if score >= BUY_SCORE_THRESHOLD and ticker not in current_positions:
+        passes_decay = (current_decay >= BUY_SCORE_THRESHOLD) and (
+            ticker not in current_positions
+        )
+        passes_delta = current_delta >= DELTA_SCORE_THRESHOLD
 
-            # Rule 2 Check: Can we afford this trade?
+        if passes_decay or passes_delta:
+
             if available_cash >= ALLOCATION_PER_TRADE:
-                print(
-                    f"🟢 BUY TRIGGERED: {ticker} has an entry score of {score:.2f}!"
-                )
+
+                if passes_delta and ticker in current_positions:
+                    reason = f"Delta Spike of {current_delta:.2f} (Adding $1000 to existing position!)"
+                elif passes_delta:
+                    reason = f"Delta Spike of {current_delta:.2f} (Initial entry)"
+                else:
+                    reason = f"Decay Score of {current_decay:.2f} (Baseline entry)"
+
+                print(f"🟢 BUY TRIGGERED: {ticker} passed due to {reason}")
 
                 buy_order = MarketOrderRequest(
                     symbol=ticker,
-                    notional=ALLOCATION_PER_TRADE,  # Orders exactly $1000 of shares
+                    notional=ALLOCATION_PER_TRADE,
                     side=OrderSide.BUY,
                     time_in_force=TimeInForce.DAY,
                 )
                 trading_client.submit_order(order_data=buy_order)
 
-                # Deduct from our tracking variable so we don't overspend on the next loop iteration
                 available_cash -= ALLOCATION_PER_TRADE
+
             else:
-                print(
-                    f"⚠️ SKIPPED: Buy signal for {ticker} (Score: {score:.2f}) but insufficient cash."
-                )
+                print(f"⚠️ SKIPPED: Buy signal for {ticker} but insufficient cash.")
 
     print("🏁 Trade evaluation complete.")
 
